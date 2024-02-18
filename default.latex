@@ -139,13 +139,37 @@ $endif$
 \ifPDFTeX\else
   % xetex/luatex font selection
 $if(mainfont)$
-  \setmainfont[$for(mainfontoptions)$$mainfontoptions$$sep$,$endfor$]{$mainfont$}
+  $if(mainfontfallback)$
+    \ifLuaTeX
+      \usepackage{luaotfload}
+      \directlua{luaotfload.add_fallback("mainfontfallback",{
+        $for(mainfontfallback)$"$mainfontfallback$"$sep$,$endfor$
+      })}
+    \fi
+  $endif$
+  \setmainfont[$for(mainfontoptions)$$mainfontoptions$$sep$,$endfor$$if(mainfontfallback)$,RawFeature={fallback=mainfontfallback}$endif$]{$mainfont$}
 $endif$
 $if(sansfont)$
-  \setsansfont[$for(sansfontoptions)$$sansfontoptions$$sep$,$endfor$]{$sansfont$}
+  $if(sansfontfallback)$
+    \ifLuaTeX
+      \usepackage{luaotfload}
+      \directlua{luaotfload.add_fallback("sansfontfallback",{
+        $for(sansfontfallback)$"$sansfontfallback$"$sep$,$endfor$
+      })}
+    \fi
+  $endif$
+  \setsansfont[$for(sansfontoptions)$$sansfontoptions$$sep$,$endfor$$if(sansfontfallback)$,RawFeature={fallback=sansfontfallback}$endif$]{$sansfont$}
 $endif$
 $if(monofont)$
-  \setmonofont[$for(monofontoptions)$$monofontoptions$$sep$,$endfor$]{$monofont$}
+  $if(monofontfallback)$
+    \ifLuaTeX
+      \usepackage{luaotfload}
+      \directlua{luaotfload.add_fallback("monofontfallback",{
+        $for(monofontfallback)$"$monofontfallback$"$sep$,$endfor$
+      })}
+    \fi
+  $endif$
+  \setmonofont[$for(monofontoptions)$$monofontoptions$$sep$,$endfor$$if(monofontfallback)$,RawFeature={fallback=monofontfallback}$endif$]{$monofont$}
 $endif$
 $for(fontfamilies)$
   \newfontfamily{$fontfamilies.name$}[$for(fontfamilies.options)$$fontfamilies.options$$sep$,$endfor$]{$fontfamilies.font$}
@@ -297,6 +321,15 @@ $-- also used for underline
   \usepackage[soul]{lua-ul}
 \else
   \usepackage{soul}
+$if(beamer)$
+  \makeatletter
+  \let\HL\hl
+  \renewcommand\hl{% fix for beamer highlighting
+    \let\set@color\beamerorig@set@color
+    \let\reset@color\beamerorig@reset@color
+    \HL}
+  \makeatother
+$endif$
 $if(CJKmainfont)$
   \ifXeTeX
     % soul's \st doesn't work for CJK:
@@ -339,8 +372,10 @@ $if(csl-refs)$
 \NewDocumentCommand\citeproctext{}{}
 \NewDocumentCommand\citeproc{mm}{%
   \begingroup\def\citeproctext{#2}\cite{#1}\endgroup}
-% avoid brackets around text for \cite:
 \makeatletter
+ % allow citations to break across lines
+ \let\@cite@ofmt\@firstofone
+ % avoid brackets around text for \cite:
  \def\@biblabel#1{}
  \def\@cite#1#2{{#1\if@tempswa , #2\fi}}
 \makeatother
@@ -348,19 +383,23 @@ $if(csl-refs)$
 \setlength{\cslhangindent}{1.5em}
 \newlength{\csllabelwidth}
 \setlength{\csllabelwidth}{3em}
-\newlength{\cslentryspacing}
-\setlength{\cslentryspacing}{0em}
-\usepackage{enumitem}
-\newlist{CSLReferences}{itemize}{1}
-\setlist[CSLReferences]{label={},
-  leftmargin=\cslhangindent,
-  itemindent=-1\cslhangindent,
-  parsep=\parskip,
-  itemsep=\cslentryspacing}
+\newenvironment{CSLReferences}[2] % #1 hanging-indent, #2 entry-spacing
+ {\begin{list}{}{%
+  \setlength{\itemindent}{0pt}
+  \setlength{\leftmargin}{0pt}
+  \setlength{\parsep}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+   \setlength{\leftmargin}{\cslhangindent}
+   \setlength{\itemindent}{-1\cslhangindent}
+  \fi
+  % set entry spacing
+  \setlength{\itemsep}{#2\baselineskip}}}
+ {\end{list}}
 \usepackage{calc}
-\newcommand{\CSLBlock}[1]{#1\hfill\break}
-\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
-\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}\break}
+\newcommand{\CSLBlock}[1]{\hfill\break\parbox[t]{\linewidth}{\strut\ignorespaces#1\strut}}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{\strut#1\strut}}
 \newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
 $endif$
 $if(lang)$
@@ -374,7 +413,7 @@ $if(babel-lang)$
 $if(mainfont)$
 \ifPDFTeX
 \else
-\babelfont{rm}[$for(mainfontoptions)$$mainfontoptions$$sep$,$endfor$]{$mainfont$}
+\babelfont{rm}[$for(mainfontoptions)$$mainfontoptions$$sep$,$endfor$$if(mainfontfallback)$,RawFeature={fallback=mainfontfallback}$endif$]{$mainfont$}
 \fi
 $endif$
 $endif$
@@ -419,7 +458,7 @@ $endif$
 $if(csquotes)$
 \usepackage{csquotes}
 $endif$
-\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\usepackage{bookmark}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{$if(urlstyle)$$urlstyle$$else$same$endif$}
 $if(links-as-notes)$
